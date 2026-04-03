@@ -107,9 +107,11 @@ class FrameDeduplicator:
         if subtitle:
             self._subtitle_history.append(subtitle)
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
+    def get_last_hash(self) -> Optional[imagehash.ImageHash]:
+        """Return the perceptual hash of the last processed frame, or ``None``."""
+        return self._last_hash
+
+
 
     @staticmethod
     def _compute_hash(image_bytes: bytes) -> imagehash.ImageHash:

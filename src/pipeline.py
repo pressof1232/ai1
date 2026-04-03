@@ -140,7 +140,7 @@ class Pipeline:
             subtitles=vision_result.subtitles,
             scene=vision_result.scene,
             assistant_response=assistant_response.raw_text,
-            scene_hash=str(self._dedup._last_hash),
+            scene_hash=str(self._dedup.get_last_hash()),
         )
         log.info("State updated for: %s", path.name)
 
