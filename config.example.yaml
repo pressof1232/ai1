@@ -1,0 +1,62 @@
+# Anime Watcher Configuration Example
+# Copy this file to config.yaml and adjust settings for your environment.
+
+# Path to the folder where VLC saves screenshots.
+# On Windows use forward slashes or double backslashes.
+screenshot_folder: "C:/Users/YourName/Pictures/VLC"
+
+# Path to a writable folder for temporary/preprocessed images.
+temp_folder: "data/temp"
+
+# SQLite state database path.
+state_db_path: "data/state.db"
+
+# Ollama API base URL (no trailing slash).
+ollama_base_url: "http://127.0.0.1:11434"
+
+# Vision model name registered in Ollama.
+vision_model: "gemma3:4b"
+
+# Text/companion model name registered in Ollama.
+text_model: "qwen2.5:7b"
+
+# Image preprocessing options.
+preprocessing:
+  # Resize the full frame before sending to the vision model.
+  resize_full_frame: true
+  # Target width for the full-frame resize (aspect ratio is preserved).
+  full_frame_width: 1280
+  # Whether to also crop and send the subtitle region separately.
+  crop_subtitle_region: true
+  # Subtitle area: fraction of the frame height from the bottom.
+  subtitle_region_height_fraction: 0.20
+
+# File stabilization: wait until a file stops growing before processing.
+# Seconds to wait between size checks.
+stabilization_poll_interval: 0.3
+# How many consecutive equal-size polls signal the file is fully written.
+stabilization_stable_count: 3
+# Maximum seconds to wait for a file to stabilise before giving up.
+stabilization_timeout: 10.0
+
+# Deduplication settings.
+deduplication:
+  # Minimum perceptual hash distance to treat frames as "different".
+  # Lower = more strict (0 = identical). Typical range 0-10.
+  hash_distance_threshold: 5
+  # Minimum seconds that must pass before processing a new frame.
+  cooldown_seconds: 3.0
+  # Number of recent subtitle strings to remember for repeat-detection.
+  subtitle_history_size: 5
+
+# Ollama HTTP client timeouts (seconds).
+timeouts:
+  connect: 10.0
+  read: 120.0
+  write: 30.0
+
+# Set to true to emit extra DEBUG-level log lines.
+debug: false
+
+# Python logging level: DEBUG | INFO | WARNING | ERROR
+log_level: "INFO"

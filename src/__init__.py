@@ -1,0 +1,1 @@
+"""anime_watcher package."""
