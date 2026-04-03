@@ -103,7 +103,7 @@ class OllamaVisionClient:
             "stream": False,
         }
 
-        last_exc: Exception = RuntimeError("no attempts made")
+        last_exc: Optional[Exception] = None
         for attempt in range(1, self._max_retries + 1):
             try:
                 logger.info(
@@ -143,4 +143,6 @@ class OllamaVisionClient:
                 if attempt < self._max_retries:
                     await asyncio.sleep(self._retry_delay)
 
-        raise RuntimeError(f"Ollama vision model failed after {self._max_retries} attempts: {last_exc}") from last_exc
+        raise RuntimeError(
+            f"Ollama vision model failed after {self._max_retries} attempts: {last_exc}"
+        ) from last_exc

@@ -25,7 +25,7 @@ class _ScreenshotEventHandler(FileSystemEventHandler):
     def __init__(
         self,
         extensions: Set[str],
-        queue: asyncio.Queue,  # type: ignore[type-arg]
+        queue: "asyncio.Queue[Path]",
         loop: asyncio.AbstractEventLoop,
     ) -> None:
         super().__init__()

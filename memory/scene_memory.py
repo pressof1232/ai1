@@ -100,6 +100,8 @@ class SceneMemory:
         new_words = set(analysis.scene.lower().split())
         if not old_words:
             return True
+        if not old_words or not new_words:
+            return True
         overlap = len(old_words & new_words) / max(len(old_words), len(new_words))
         return overlap < 0.5  # less than 50 % word overlap → significant change
 
