@@ -205,3 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Runtime data (state DB, temp files)
+data/temp/
+data/state.db
+config.yaml
