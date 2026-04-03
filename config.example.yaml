@@ -1,0 +1,95 @@
+# =============================================================================
+# VLC Anime Assistant — config.example.yaml
+# Copy this file to config.yaml and adjust paths for your Windows environment.
+# All folder paths are created automatically if they do not exist.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Paths  (Windows-friendly defaults; use forward slashes or double backslashes)
+# ---------------------------------------------------------------------------
+paths:
+  screenshots_folder: "C:/Users/%USERNAME%/Pictures/VLC Screenshots"
+  temp_folder:        "C:/Users/%USERNAME%/AppData/Local/vlc-anime-assistant/temp"
+  logs_folder:        "C:/Users/%USERNAME%/AppData/Local/vlc-anime-assistant/logs"
+  state_db:           "C:/Users/%USERNAME%/AppData/Local/vlc-anime-assistant/state.db"
+  scene_memory_db:    "C:/Users/%USERNAME%/AppData/Local/vlc-anime-assistant/scene_memory.db"
+  debug_export_folder: ""   # leave empty to disable debug exports
+
+# ---------------------------------------------------------------------------
+# Ollama
+# ---------------------------------------------------------------------------
+ollama:
+  base_url: "http://localhost:11434"
+  vision_model: "gemma3:4b"
+  text_model:   "qwen2.5:7b"
+  timeout_seconds: 120
+  max_retries: 3
+  retry_delay_seconds: 2.0
+
+# ---------------------------------------------------------------------------
+# AnythingLLM  (optional; set enabled: false to skip and always use Ollama fallback)
+# ---------------------------------------------------------------------------
+anythingllm:
+  enabled: false
+  base_url:       "http://localhost:3001"
+  api_key:        ""          # AnythingLLM API key (Settings → API Keys)
+  workspace_slug: "anime"     # slug of the workspace to use
+  timeout_seconds: 30
+
+# ---------------------------------------------------------------------------
+# Assistant routing
+# ---------------------------------------------------------------------------
+assistant:
+  # "anythingllm" | "ollama" | "auto"
+  # auto = try AnythingLLM first, fallback to Ollama if unavailable
+  sink: "auto"
+
+# ---------------------------------------------------------------------------
+# Watcher
+# ---------------------------------------------------------------------------
+watcher:
+  poll_interval_seconds: 0.5          # how often to poll file size for stability
+  stability_checks: 3                  # how many consecutive equal-size checks needed
+  supported_extensions: ["png", "jpg", "jpeg"]
+
+# ---------------------------------------------------------------------------
+# Image preprocessing
+# ---------------------------------------------------------------------------
+preprocessing:
+  max_width: 1280
+  max_height: 720
+  # Subtitle crop: fraction of image height from the bottom to include in subtitle region
+  subtitle_crop_top_ratio: 0.78       # crop from 78 % height downward
+  save_temp_images: false             # save resized/cropped images to temp folder
+
+# ---------------------------------------------------------------------------
+# Deduplication
+# ---------------------------------------------------------------------------
+dedup:
+  hash_size: 8                        # perceptual hash size (8 = 64-bit hash)
+  similarity_threshold: 5             # max hamming distance to consider "duplicate"
+  subtitle_cooldown_seconds: 10.0     # skip if same subtitle seen within N seconds
+  frame_cooldown_seconds: 5.0         # minimum seconds between accepted frames
+
+# ---------------------------------------------------------------------------
+# Scene memory
+# ---------------------------------------------------------------------------
+scene_memory:
+  max_frames: 30                      # max recent VisualAnalysis frames to keep
+  max_subtitle_lines: 50              # max unique subtitle lines to remember
+  max_scene_summaries: 10             # max compact scene-change summaries to keep
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging:
+  level: "INFO"                       # DEBUG | INFO | WARNING | ERROR
+  log_to_file: true
+  log_filename: "assistant.log"
+
+# ---------------------------------------------------------------------------
+# Debug
+# ---------------------------------------------------------------------------
+debug:
+  enabled: false
+  print_raw_vision_response: false
