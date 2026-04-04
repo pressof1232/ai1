@@ -128,6 +128,14 @@ class Pipeline:
         # 7. Export frame to physical episode folder (no-op if storage disabled)
         self._episode_store.export_frame(analysis, cluster, path)
 
+        # 8. Update human-readable episode summary (no-op if storage disabled)
+        self._episode_store.update_episode_summary(
+            cluster,
+            scene_state=self._store.get_scene_state(cluster),
+            recent_subtitles=self._store.get_recent_subtitles(cluster),
+            scene_history=self._store.get_scene_history(cluster),
+        )
+
     # ------------------------------------------------------------------
     # User query entry point
     # ------------------------------------------------------------------

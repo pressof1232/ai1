@@ -161,13 +161,15 @@ anime_storage:
 AnimeDB/
   Blood-C/
     S01E01/
-      screenshots/       ← copies of accepted VLC screenshots
-      metadata/          ← reserved for future per-episode metadata
-      frames.jsonl       ← one JSON record per accepted frame
+      screenshots/          ← copies of accepted VLC screenshots
+      metadata/             ← reserved for future per-episode metadata
+      frames.jsonl          ← one JSON record per accepted frame
+      episode_summary.txt   ← human-readable rolling episode summary
     S01E02/
       screenshots/
       metadata/
       frames.jsonl
+      episode_summary.txt
 ```
 
 ### frames.jsonl record format
@@ -192,7 +194,36 @@ Each line is a self-contained JSON object:
 
 ### Session resumption
 
-Folder identity is based on `(series_name, episode_label)` only. Resuming Blood-C S01E01 in a new session tomorrow writes to the **same** `AnimeDB/Blood-C/S01E01/` folder and appends to the **same** `frames.jsonl`. `session_id` is recorded inside each record as metadata.
+Folder identity is based on `(series_name, episode_label)` only. Resuming Blood-C S01E01 in a new session tomorrow writes to the **same** `AnimeDB/Blood-C/S01E01/` folder and appends to the **same** `frames.jsonl`. `session_id` is recorded inside each record as metadata. `episode_summary.txt` is also overwritten in-place so it always reflects the latest accumulated context, regardless of how many sessions contributed to it.
+
+### episode_summary.txt
+
+A plain-text rolling summary of the episode, rewritten after every accepted frame. Built entirely from already-stored SQLite memory — no new model call. Intended as a lightweight reference for a future "personality model".
+
+Example content:
+
+```
+=== Blood-C — S01E01 ===
+Updated: 2026-04-04T19:35:00Z
+
+--- Current Scene ---
+Saya is walking to school through the town, greeting neighbours.
+
+--- Key Entities ---
+- Saya
+- shrine
+- school uniform
+- townspeople
+
+--- Recent Subtitles ---
+- Saya, breakfast is ready!
+- I'll be right there, Mom!
+- Good morning!
+
+--- Scene History ---
+- Opening sequence with the town at dawn, shrine in the background.
+- Saya and her father share breakfast at the shrine house.
+```
 
 ---
 

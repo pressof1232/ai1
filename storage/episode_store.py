@@ -7,9 +7,10 @@ Creates and manages a physical folder structure rooted at
     <root>/
       <series_name>/
         <episode_label>/
-          screenshots/   ← accepted screenshot files
-          metadata/      ← future: per-episode metadata blobs
-          frames.jsonl   ← one JSON record per accepted frame
+          screenshots/          ← accepted screenshot files
+          metadata/             ← future: per-episode metadata blobs
+          frames.jsonl          ← one JSON record per accepted frame
+          episode_summary.txt   ← human-readable rolling episode summary
 
 Folder identity is based exclusively on (series_name, episode_label).
 Resuming the same episode in a new session reuses the same folder;
@@ -19,6 +20,7 @@ Usage::
 
     store = EpisodeStore(cfg)
     store.export_frame(analysis, cluster, source_path)
+    store.update_episode_summary(cluster, scene_state, recent_subtitles, scene_history)
 """
 
 from __future__ import annotations
@@ -28,11 +30,12 @@ import logging
 import os
 import re
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from config.loader import AppConfig
-from schemas.vision_schema import ClusterContext, VisualAnalysis
+from schemas.vision_schema import ClusterContext, SceneState, VisualAnalysis
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +116,33 @@ class EpisodeStore:
             logger.warning(
                 "episode_store.export_failed: file=%s error=%s",
                 source_path.name,
+                exc,
+                exc_info=True,
+            )
+
+    def update_episode_summary(
+        self,
+        cluster: ClusterContext,
+        scene_state: Optional[SceneState],
+        recent_subtitles: List[str],
+        scene_history: List[str],
+    ) -> None:
+        """Overwrite ``episode_summary.txt`` with a factual rolling summary.
+
+        Data is sourced exclusively from already-stored memory (no new model
+        call).  The file is rewritten on every accepted frame so it always
+        reflects the latest available context.  Safe to call at all times —
+        exceptions are caught and logged.
+        """
+        if not self._enabled:
+            return
+        try:
+            self._write_summary(cluster, scene_state, recent_subtitles, scene_history)
+        except Exception as exc:
+            logger.warning(
+                "episode_store.summary_failed: series=%s episode=%s error=%s",
+                cluster.series_name,
+                cluster.episode_label,
                 exc,
                 exc_info=True,
             )
@@ -214,4 +244,54 @@ class EpisodeStore:
             cluster.series_name,
             cluster.episode_label,
             source_path.name,
+        )
+
+    def _write_summary(
+        self,
+        cluster: ClusterContext,
+        scene_state: Optional[SceneState],
+        recent_subtitles: List[str],
+        scene_history: List[str],
+    ) -> None:
+        ep_dir = self.ensure_episode_dirs(cluster)
+        if ep_dir is None:
+            return
+
+        lines: List[str] = []
+        lines.append(f"=== {cluster.series_name} — {cluster.episode_label} ===")
+        lines.append(
+            f"Updated: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        )
+
+        lines.append("")
+        lines.append("--- Current Scene ---")
+        if scene_state and scene_state.scene_summary:
+            lines.append(scene_state.scene_summary)
+        else:
+            lines.append("(no scene data yet)")
+
+        if scene_state and scene_state.important_entities:
+            lines.append("")
+            lines.append("--- Key Entities ---")
+            for entity in scene_state.important_entities:
+                lines.append(f"- {entity}")
+
+        if recent_subtitles:
+            lines.append("")
+            lines.append("--- Recent Subtitles ---")
+            for sub in recent_subtitles:
+                lines.append(f"- {sub}")
+
+        if scene_history:
+            lines.append("")
+            lines.append("--- Scene History ---")
+            for entry in scene_history:
+                lines.append(f"- {entry}")
+
+        summary_file = ep_dir / "episode_summary.txt"
+        summary_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        logger.debug(
+            "episode_store.summary_written: series=%s episode=%s",
+            cluster.series_name,
+            cluster.episode_label,
         )
