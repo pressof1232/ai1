@@ -29,7 +29,7 @@ import os
 import re
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional, Set
 
 from config.loader import AppConfig
 from schemas.vision_schema import ClusterContext, VisualAnalysis
@@ -62,6 +62,10 @@ class EpisodeStore:
             if self._enabled
             else None
         )
+        # Per-episode cache of known frame hashes: episode_dir → set of hashes.
+        # Populated lazily on first access from the existing frames.jsonl file,
+        # then kept in sync as new records are written.
+        self._known_hashes: Dict[Path, Set[str]] = {}
         if self._enabled:
             logger.info("episode_store.enabled: root=%s", self._root)
         else:
@@ -117,6 +121,32 @@ class EpisodeStore:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _load_known_hashes(self, ep_dir: Path) -> Set[str]:
+        """Return the set of frame_hash values already in frames.jsonl.
+
+        Results are cached in ``self._known_hashes`` so the file is read at
+        most once per episode per process lifetime.
+        """
+        if ep_dir in self._known_hashes:
+            return self._known_hashes[ep_dir]
+        hashes: Set[str] = set()
+        frames_file = ep_dir / "frames.jsonl"
+        if frames_file.exists():
+            with frames_file.open("r", encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        rec = json.loads(line)
+                        h = rec.get("frame_hash")
+                        if h:
+                            hashes.add(h)
+                    except json.JSONDecodeError:
+                        pass  # skip malformed lines
+        self._known_hashes[ep_dir] = hashes
+        return hashes
+
     def _export(
         self,
         analysis: VisualAnalysis,
@@ -156,10 +186,28 @@ class EpisodeStore:
             "frame_hash": analysis.frame_hash,
         }
 
-        # Append to frames.jsonl
+        # Deduplicate by frame_hash before writing.
+        # frame_hash may be None for frames where hashing failed; those are
+        # always written (None cannot be used as a stable dedup key).
         frames_file = ep_dir / "frames.jsonl"
+        frame_hash = analysis.frame_hash
+        known = self._load_known_hashes(ep_dir)
+        if frame_hash and frame_hash in known:
+            logger.debug(
+                "episode_store.frame_hash_duplicate_skipped: hash=%s file=%s",
+                frame_hash,
+                source_path.name,
+            )
+            return
+
+        # Append to frames.jsonl
         with frames_file.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+        # Update the in-memory cache so repeated calls in the same session
+        # also benefit from deduplication without re-reading the file.
+        if frame_hash:
+            known.add(frame_hash)
 
         logger.info(
             "episode_store.frame_exported: series=%s episode=%s file=%s",
