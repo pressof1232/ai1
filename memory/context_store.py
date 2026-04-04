@@ -78,11 +78,17 @@ def _migrate_schema(con: sqlite3.Connection) -> None:
 
     Pass 1 — add missing columns (series_name / episode_label / session_id).
     Pass 2 — fix UNIQUE constraints that incorrectly included session_id:
-              subtitles and scene_state are recreated if their stored SQL
-              shows session_id inside a UNIQUE index.
+              subtitles and scene_state are recreated if their unique indexes
+              include the session_id column (detected via PRAGMA index_list,
+              not fragile SQL string matching).
     """
 
+    # Only these known-safe table/column names are ever used in dynamic SQL.
+    _KNOWN_TABLES = frozenset({"frames", "subtitles", "scene_state", "scene_history"})
+    _KNOWN_COLS = frozenset({"series_name", "episode_label", "session_id"})
+
     def _column_exists(table: str, col: str) -> bool:
+        assert table in _KNOWN_TABLES  # guard against accidental misuse
         rows = con.execute(f"PRAGMA table_info({table})").fetchall()
         return any(r[1] == col for r in rows)
 
@@ -92,11 +98,26 @@ def _migrate_schema(con: sqlite3.Connection) -> None:
         ).fetchone()
         return row is not None
 
-    def _table_sql(table: str) -> str:
-        row = con.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table,)
-        ).fetchone()
-        return row[0] if row else ""
+    def _unique_index_has_session_id(table: str) -> bool:
+        """Return True if any UNIQUE index on `table` includes the session_id column.
+
+        Uses PRAGMA index_list / index_info rather than SQL string matching so
+        it is robust to whitespace or quoting differences in the stored DDL.
+        """
+        assert table in _KNOWN_TABLES
+        indexes = con.execute(f"PRAGMA index_list({table})").fetchall()
+        for idx in indexes:
+            is_unique = idx[2]  # column 2 is the 'unique' flag (1 = unique)
+            if not is_unique:
+                continue
+            idx_name = idx[1]
+            cols = [
+                r[2]
+                for r in con.execute(f"PRAGMA index_info({idx_name})").fetchall()
+            ]
+            if "session_id" in cols:
+                return True
+        return False
 
     cluster_cols = [
         ("series_name", "TEXT NOT NULL DEFAULT 'default'"),
@@ -110,6 +131,7 @@ def _migrate_schema(con: sqlite3.Connection) -> None:
     for table in ("frames", "scene_history"):
         if _table_exists(table):
             for col, col_def in cluster_cols:
+                assert col in _KNOWN_COLS  # guard: only whitelisted column names
                 if not _column_exists(table, col):
                     con.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
                     logger.info("schema_migration: added %s.%s", table, col)
@@ -160,10 +182,8 @@ def _migrate_schema(con: sqlite3.Connection) -> None:
     # This corrects databases created by the previous version of this code
     # where session_id was incorrectly included in the UNIQUE key.
 
-    # subtitles: drop session_id from UNIQUE(text, series_name, episode_label, session_id)
-    if _table_exists("subtitles"):
-        sql = _table_sql("subtitles").lower()
-        if "unique(text, series_name, episode_label, session_id)" in sql:
+    # subtitles: drop session_id from the UNIQUE index
+    if _table_exists("subtitles") and _unique_index_has_session_id("subtitles"):
             con.executescript("""
                 ALTER TABLE subtitles RENAME TO subtitles_old;
                 CREATE TABLE subtitles (
@@ -182,10 +202,8 @@ def _migrate_schema(con: sqlite3.Connection) -> None:
             """)
             logger.info("schema_migration: removed session_id from subtitles UNIQUE constraint")
 
-    # scene_state: drop session_id from UNIQUE(series_name, episode_label, session_id)
-    if _table_exists("scene_state"):
-        sql = _table_sql("scene_state").lower()
-        if "unique(series_name, episode_label, session_id)" in sql:
+    # scene_state: drop session_id from the UNIQUE index
+    if _table_exists("scene_state") and _unique_index_has_session_id("scene_state"):
             con.executescript("""
                 ALTER TABLE scene_state RENAME TO scene_state_old;
                 CREATE TABLE scene_state (

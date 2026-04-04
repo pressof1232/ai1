@@ -56,6 +56,8 @@ class EpisodeStore:
         storage_cfg = cfg.anime_storage
         self._enabled = storage_cfg.enabled and bool(storage_cfg.root_folder)
         self._root: Optional[Path] = (
+            # os.path.expandvars is intentional — same convention used by
+            # AppConfig.ensure_dirs() for all other configured paths.
             Path(os.path.expandvars(storage_cfg.root_folder))
             if self._enabled
             else None
@@ -130,6 +132,10 @@ class EpisodeStore:
         if source_path.exists():
             dest = screenshots_dir / source_path.name
             if not dest.exists():
+                # Skip if a file with the same name already exists — duplicate
+                # screenshots from resumed sessions should not overwrite the
+                # original copy (filenames are typically timestamp-based and
+                # unique per capture, so collisions only happen on exact re-runs).
                 shutil.copy2(source_path, dest)
                 logger.debug(
                     "episode_store.screenshot_copied: %s → %s", source_path.name, dest
