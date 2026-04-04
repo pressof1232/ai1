@@ -88,6 +88,13 @@ class LoggingConfig(BaseModel):
     log_filename: str = "assistant.log"
 
 
+class AnimeStorageConfig(BaseModel):
+    """Physical filesystem storage for per-episode data (screenshots, JSONL records)."""
+
+    enabled: bool = False
+    root_folder: str = ""   # e.g. "A:/AnimeDB" — leave empty to disable
+
+
 class DebugConfig(BaseModel):
     enabled: bool = False
     print_raw_vision_response: bool = False
@@ -119,6 +126,7 @@ class AppConfig(BaseModel):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     debug: DebugConfig = Field(default_factory=DebugConfig)
     session: SessionConfig = Field(default_factory=SessionConfig)
+    anime_storage: AnimeStorageConfig = Field(default_factory=AnimeStorageConfig)
 
     def ensure_dirs(self) -> None:
         """Create all configured directories that do not exist yet."""
@@ -137,6 +145,11 @@ class AppConfig(BaseModel):
         for db_field in ("state_db", "scene_memory_db"):
             db_path = Path(os.path.expandvars(getattr(self.paths, db_field)))
             db_path.parent.mkdir(parents=True, exist_ok=True)
+        # Anime storage root
+        if self.anime_storage.enabled and self.anime_storage.root_folder:
+            Path(os.path.expandvars(self.anime_storage.root_folder)).mkdir(
+                parents=True, exist_ok=True
+            )
 
 
 # ---------------------------------------------------------------------------

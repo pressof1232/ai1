@@ -139,9 +139,64 @@ See `config.example.yaml` for all options with comments. Key sections:
 | `dedup` | Hash size, similarity threshold, cooldowns |
 | `scene_memory` | Frame/subtitle/history buffer sizes |
 | `logging` | Log level, file logging |
-| `session` | Active cluster: series, episode, session ID, path-parsing settings |
+| `anime_storage` | Physical episode folder storage (screenshots + JSONL records) |
 
 ---
+
+## Physical Episode Storage
+
+When `anime_storage.enabled: true`, every accepted screenshot is exported to a per-episode folder structure alongside a structured JSONL record.
+
+### Configuration
+
+```yaml
+anime_storage:
+  enabled: true
+  root_folder: "A:/AnimeDB"   # any drive/path
+```
+
+### Folder structure
+
+```
+AnimeDB/
+  Blood-C/
+    S01E01/
+      screenshots/       ← copies of accepted VLC screenshots
+      metadata/          ← reserved for future per-episode metadata
+      frames.jsonl       ← one JSON record per accepted frame
+    S01E02/
+      screenshots/
+      metadata/
+      frames.jsonl
+```
+
+### frames.jsonl record format
+
+Each line is a self-contained JSON object:
+
+```json
+{
+  "source_file": "vlcsnap-00001.png",
+  "timestamp": "2026-04-04T18:30:00.000000",
+  "series_name": "Blood-C",
+  "episode_label": "S01E01",
+  "session_id": "2026-04-04T18-00-00",
+  "subtitles": "Saya, breakfast is ready!",
+  "scene": "Morning kitchen scene, sunlight streaming through the window.",
+  "important": ["Saya", "kitchen", "school uniform"],
+  "uncertainty": null,
+  "image_quality_note": null,
+  "frame_hash": "a3f0..."
+}
+```
+
+### Session resumption
+
+Folder identity is based on `(series_name, episode_label)` only. Resuming Blood-C S01E01 in a new session tomorrow writes to the **same** `AnimeDB/Blood-C/S01E01/` folder and appends to the **same** `frames.jsonl`. `session_id` is recorded inside each record as metadata.
+
+---
+
+
 
 ## Episode & Session Clustering
 

@@ -23,6 +23,7 @@ from memory.scene_memory import SceneMemory
 from preprocessing.image_processor import ImageProcessor
 from schemas.vision_schema import ClusterContext
 from state.local_state import LocalState
+from storage.episode_store import EpisodeStore
 from vision.ollama_vision_client import OllamaVisionClient
 from watcher.screenshot_watcher import ScreenshotWatcher
 
@@ -47,6 +48,7 @@ class Pipeline:
         self._vision = OllamaVisionClient(cfg)
         self._scene_memory = SceneMemory(cfg, self._store)
         self._retriever = ContextRetriever(cfg, self._store)
+        self._episode_store = EpisodeStore(cfg)
 
         self._preferred_sink: AssistantSink = AnythingLLMSink(cfg)
         self._fallback_sink: AssistantSink = OllamaTextSink(cfg)
@@ -122,6 +124,9 @@ class Pipeline:
             cluster,
             analysis.subtitles,
         )
+
+        # 7. Export frame to physical episode folder (no-op if storage disabled)
+        self._episode_store.export_frame(analysis, cluster, path)
 
     # ------------------------------------------------------------------
     # User query entry point

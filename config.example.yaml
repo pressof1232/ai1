@@ -103,6 +103,20 @@ session:
   parse_from_path: true           # try to infer series/episode from screenshot file paths
 
 # ---------------------------------------------------------------------------
+# Anime filesystem storage  (optional; disabled by default)
+# ---------------------------------------------------------------------------
+# When enabled, each accepted screenshot is copied to:
+#   <root_folder>/<series_name>/<episode_label>/screenshots/
+# and a JSONL frame record is appended to:
+#   <root_folder>/<series_name>/<episode_label>/frames.jsonl
+#
+# Folder identity is based on (series_name, episode_label) only.
+# Resuming the same episode in a new session reuses the existing folder.
+anime_storage:
+  enabled: false
+  root_folder: ""   # e.g. "A:/AnimeDB" — set enabled: true and a path to activate
+
+# ---------------------------------------------------------------------------
 # Debug
 # ---------------------------------------------------------------------------
 debug:
