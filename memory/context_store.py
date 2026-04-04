@@ -161,8 +161,7 @@ def _migrate_schema(con: sqlite3.Connection) -> None:
     # where session_id was incorrectly included in the UNIQUE key.
 
     # subtitles: drop session_id from UNIQUE(text, series_name, episode_label, session_id)
-    if _table_exists("subtitles") and "session_id" in _table_sql("subtitles").lower():
-        # Check whether the UNIQUE clause actually contains session_id
+    if _table_exists("subtitles"):
         sql = _table_sql("subtitles").lower()
         if "unique(text, series_name, episode_label, session_id)" in sql:
             con.executescript("""
@@ -184,7 +183,7 @@ def _migrate_schema(con: sqlite3.Connection) -> None:
             logger.info("schema_migration: removed session_id from subtitles UNIQUE constraint")
 
     # scene_state: drop session_id from UNIQUE(series_name, episode_label, session_id)
-    if _table_exists("scene_state") and "session_id" in _table_sql("scene_state").lower():
+    if _table_exists("scene_state"):
         sql = _table_sql("scene_state").lower()
         if "unique(series_name, episode_label, session_id)" in sql:
             con.executescript("""
