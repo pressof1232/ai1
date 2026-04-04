@@ -88,6 +88,21 @@ logging:
   log_filename: "assistant.log"
 
 # ---------------------------------------------------------------------------
+# Session / cluster  (episode-aware memory isolation)
+# ---------------------------------------------------------------------------
+# All screenshots and queries are scoped to the active cluster.
+# If session_id is empty and auto_generate_session_id is true, a timestamp-based
+# session ID is created automatically at startup (e.g. 2026-04-04T04-30-00).
+# If parse_from_path is true, series/episode may be inferred from screenshot paths
+# (e.g. "Blood-C/S01E03/vlcsnap-...png") and used instead of the config values.
+session:
+  series_name: "default"          # e.g. "Blood-C"
+  episode_label: "default"        # e.g. "S01E01"
+  session_id: ""                  # leave empty to auto-generate
+  auto_generate_session_id: true  # create a timestamp-based ID at startup if session_id is empty
+  parse_from_path: true           # try to infer series/episode from screenshot file paths
+
+# ---------------------------------------------------------------------------
 # Debug
 # ---------------------------------------------------------------------------
 debug:

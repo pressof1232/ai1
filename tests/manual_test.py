@@ -14,6 +14,7 @@ from pathlib import Path
 
 from config.loader import AppConfig
 from dedup.deduplicator import Deduplicator
+from memory.cluster_resolver import resolve_cluster_for_path, resolve_startup_cluster
 from memory.context_retriever import ContextRetriever
 from memory.context_store import ContextStore
 from memory.scene_memory import SceneMemory
@@ -44,9 +45,14 @@ async def run_manual_test(cfg: AppConfig, image_path: Path) -> None:
         print(f"[ERROR] Image not found: {image_path}")
         return
 
+    # Resolve active cluster (startup cluster + optional path refinement)
+    base_cluster = resolve_startup_cluster(cfg)
+    cluster = resolve_cluster_for_path(cfg, image_path, base_cluster)
+
     print(f"\n{'═' * 60}")
     print(f"  MANUAL TEST MODE")
     print(f"  Image: {image_path}")
+    print(f"  Active cluster: {cluster}")
     print(f"{'═' * 60}")
 
     state = LocalState(cfg)
@@ -103,12 +109,12 @@ async def run_manual_test(cfg: AppConfig, image_path: Path) -> None:
         print(f"[INFO] Subtitle duplicate — clearing: {analysis.subtitles!r}")
         analysis.subtitles = None
     dedup.accept(frame_hash, analysis.subtitles)
-    scene_memory.ingest(analysis)
-    print("Scene memory updated successfully.")
+    scene_memory.ingest(analysis, cluster)
+    print(f"Scene memory updated successfully (cluster: {cluster}).")
 
     # 5. Context retrieval
     _hr("5. CONTEXT RETRIEVAL")
-    bundle = retriever.retrieve()
+    bundle = retriever.retrieve(cluster)
     print(f"Recent frames:       {len(bundle.recent_frames)}")
     print(f"Recent subtitles:    {bundle.recent_subtitles}")
     print(f"Scene summary:       {bundle.rolling_state.scene_summary[:120]}")

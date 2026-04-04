@@ -93,6 +93,16 @@ class DebugConfig(BaseModel):
     print_raw_vision_response: bool = False
 
 
+class SessionConfig(BaseModel):
+    """Active cluster settings for episode/session-aware memory."""
+
+    series_name: str = "default"
+    episode_label: str = "default"
+    session_id: str = ""
+    auto_generate_session_id: bool = True
+    parse_from_path: bool = True
+
+
 # ---------------------------------------------------------------------------
 # Root config
 # ---------------------------------------------------------------------------
@@ -108,6 +118,7 @@ class AppConfig(BaseModel):
     scene_memory: SceneMemoryConfig = Field(default_factory=SceneMemoryConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     debug: DebugConfig = Field(default_factory=DebugConfig)
+    session: SessionConfig = Field(default_factory=SessionConfig)
 
     def ensure_dirs(self) -> None:
         """Create all configured directories that do not exist yet."""

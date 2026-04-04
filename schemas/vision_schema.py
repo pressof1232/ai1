@@ -9,6 +9,25 @@ from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
+# Cluster context (episode/session identity for memory isolation)
+# ---------------------------------------------------------------------------
+
+class ClusterContext(BaseModel):
+    """Identifies an episode/session cluster for isolated memory storage."""
+
+    series_name: str = "default"
+    episode_label: str = "default"
+    session_id: str = "default"
+
+    def __str__(self) -> str:
+        return (
+            f"series={self.series_name} "
+            f"episode={self.episode_label} "
+            f"session={self.session_id}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Vision analysis output (structured result from Ollama vision model)
 # ---------------------------------------------------------------------------
 

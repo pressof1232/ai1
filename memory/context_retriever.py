@@ -7,7 +7,7 @@ from datetime import datetime
 
 from config.loader import AppConfig
 from memory.context_store import ContextStore
-from schemas.vision_schema import ContextBundle, SceneState
+from schemas.vision_schema import ClusterContext, ContextBundle, SceneState
 
 logger = logging.getLogger(__name__)
 
@@ -20,17 +20,19 @@ class ContextRetriever:
         self._recent_frames_limit = min(5, cfg.scene_memory.max_frames)
         self._subtitle_limit = 10
 
-    def retrieve(self) -> ContextBundle:
+    def retrieve(self, cluster: ClusterContext) -> ContextBundle:
         """
-        Build a ContextBundle from current stored memory.
+        Build a ContextBundle from memory stored under the given cluster.
         Called only when the user asks a question.
         """
-        logger.info("context_retriever.retrieve: assembling context bundle")
+        logger.info(
+            "context_retriever.retrieve: cluster=[%s]", cluster
+        )
 
-        scene_state = self._store.get_scene_state() or SceneState()
-        recent_frames = self._store.get_recent_frames(limit=self._recent_frames_limit)
-        recent_subtitles = self._store.get_recent_subtitles(limit=self._subtitle_limit)
-        history = self._store.get_scene_history(limit=5)
+        scene_state = self._store.get_scene_state(cluster) or SceneState()
+        recent_frames = self._store.get_recent_frames(cluster, limit=self._recent_frames_limit)
+        recent_subtitles = self._store.get_recent_subtitles(cluster, limit=self._subtitle_limit)
+        history = self._store.get_scene_history(cluster, limit=5)
         history_summary = "\n".join(history) if history else None
 
         bundle = ContextBundle(

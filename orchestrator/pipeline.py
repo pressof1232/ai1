@@ -16,10 +16,12 @@ from assistant.base_sink import AssistantSink, HandoffUnavailableError
 from assistant.ollama_text_sink import OllamaTextSink
 from config.loader import AppConfig
 from dedup.deduplicator import Deduplicator
+from memory.cluster_resolver import resolve_cluster_for_path, resolve_startup_cluster
 from memory.context_retriever import ContextRetriever
 from memory.context_store import ContextStore
 from memory.scene_memory import SceneMemory
 from preprocessing.image_processor import ImageProcessor
+from schemas.vision_schema import ClusterContext
 from state.local_state import LocalState
 from vision.ollama_vision_client import OllamaVisionClient
 from watcher.screenshot_watcher import ScreenshotWatcher
@@ -33,6 +35,10 @@ class Pipeline:
     def __init__(self, cfg: AppConfig) -> None:
         cfg.ensure_dirs()
         self._cfg = cfg
+
+        # Resolve active cluster once at startup (used for queries and as default for storage)
+        self._cluster: ClusterContext = resolve_startup_cluster(cfg)
+        logger.info("pipeline.active_cluster: %s", self._cluster)
 
         self._state = LocalState(cfg)
         self._store = ContextStore(cfg)
@@ -50,6 +56,8 @@ class Pipeline:
     # ------------------------------------------------------------------
 
     async def run_forever(self) -> None:
+        logger.info("pipeline.watcher_start: active_cluster=[%s]", self._cluster)
+        print(f"[Active cluster]: {self._cluster}")
         watcher = ScreenshotWatcher(self._cfg, self._on_new_screenshot)
         await watcher.run_forever()
 
@@ -67,6 +75,9 @@ class Pipeline:
             )
 
     async def _process_screenshot(self, path: Path) -> None:
+        # Determine cluster for this screenshot (may refine episode from path)
+        cluster = resolve_cluster_for_path(self._cfg, path, self._cluster)
+
         # 1. Preprocessing
         try:
             full_img, _subtitle_crop = self._processor.process(path)
@@ -104,10 +115,11 @@ class Pipeline:
         self._state.last_processed_file = path.name
 
         # 6. Update scene memory (SILENT — no assistant called here)
-        self._scene_memory.ingest(analysis)
+        self._scene_memory.ingest(analysis, cluster)
         logger.info(
-            "pipeline.scene_memory_updated: file=%s subtitles=%r",
+            "pipeline.scene_memory_updated: file=%s cluster=[%s] subtitles=%r",
             path.name,
+            cluster,
             analysis.subtitles,
         )
 
@@ -118,11 +130,16 @@ class Pipeline:
     async def answer_user_question(self, question: str) -> str:
         """
         Called when the user asks something.
-        Retrieves stored context and routes to the appropriate assistant sink.
+        Retrieves stored context from the active cluster and routes to the
+        appropriate assistant sink.
         """
-        logger.info("pipeline.user_query: %r", question[:80])
+        logger.info(
+            "pipeline.user_query: cluster=[%s] question=%r",
+            self._cluster,
+            question[:80],
+        )
 
-        context = self._retriever.retrieve()
+        context = self._retriever.retrieve(self._cluster)
 
         if context.is_empty():
             logger.warning("pipeline.no_context_yet")

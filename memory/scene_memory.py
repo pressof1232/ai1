@@ -13,7 +13,7 @@ from typing import Optional
 
 from config.loader import AppConfig
 from memory.context_store import ContextStore
-from schemas.vision_schema import SceneState, VisualAnalysis
+from schemas.vision_schema import ClusterContext, SceneState, VisualAnalysis
 
 logger = logging.getLogger(__name__)
 
@@ -25,39 +25,43 @@ class SceneMemory:
         self._store = store
         self._cfg = cfg
 
-    def ingest(self, analysis: VisualAnalysis) -> None:
+    def ingest(self, analysis: VisualAnalysis, cluster: ClusterContext) -> None:
         """
-        Ingest a new VisualAnalysis into persistent memory.
+        Ingest a new VisualAnalysis into persistent memory for the given cluster.
 
         Steps
         -----
         1. Store the frame.
-        2. Update subtitle history (deduplicated).
-        3. Update the rolling scene state.
+        2. Update subtitle history (deduplicated within cluster).
+        3. Update the rolling scene state for the cluster.
         4. Optionally add a scene-change summary entry.
         """
-        logger.info("scene_memory.update: file=%s", analysis.source_file or "?")
+        logger.info(
+            "scene_memory.update: file=%s cluster=[%s]",
+            analysis.source_file or "?",
+            cluster,
+        )
 
         # 1. Store frame
-        self._store.add_frame(analysis)
+        self._store.add_frame(analysis, cluster)
 
         # 2. Subtitle
         if analysis.subtitles:
-            new_subtitle = self._store.add_subtitle(analysis.subtitles)
+            new_subtitle = self._store.add_subtitle(analysis.subtitles, cluster)
             if new_subtitle:
                 logger.debug("scene_memory.new_subtitle: %r", analysis.subtitles[:80])
             else:
                 logger.debug("scene_memory.subtitle_already_known: %r", analysis.subtitles[:60])
 
         # 3. Update rolling scene state
-        current_state = self._store.get_scene_state() or SceneState()
-        new_state = self._build_updated_state(current_state, analysis)
-        self._store.update_scene_state(new_state)
+        current_state = self._store.get_scene_state(cluster) or SceneState()
+        new_state = self._build_updated_state(current_state, analysis, cluster)
+        self._store.update_scene_state(new_state, cluster)
 
         # 4. Scene history: add a compact entry when scene description changes meaningfully
         if self._is_significant_change(current_state, analysis):
             entry = self._make_history_entry(analysis)
-            self._store.add_scene_history_entry(entry)
+            self._store.add_scene_history_entry(entry, cluster)
             logger.debug("scene_memory.history_entry_added")
 
     # ------------------------------------------------------------------
@@ -65,7 +69,7 @@ class SceneMemory:
     # ------------------------------------------------------------------
 
     def _build_updated_state(
-        self, current: SceneState, analysis: VisualAnalysis
+        self, current: SceneState, analysis: VisualAnalysis, cluster: ClusterContext
     ) -> SceneState:
         """Merge new analysis into the rolling state."""
         # Scene summary: prefer latest non-empty
@@ -78,8 +82,8 @@ class SceneMemory:
         # Keep only the most recent N entities to avoid unbounded growth
         entities = list(existing)[-20:]
 
-        # Subtitle summary: use last few unique subtitle lines
-        recent_subs = self._store.get_recent_subtitles(limit=5)
+        # Subtitle summary: use last few unique subtitle lines for this cluster
+        recent_subs = self._store.get_recent_subtitles(cluster, limit=5)
         subtitle_summary = " | ".join(recent_subs) if recent_subs else ""
 
         return SceneState(

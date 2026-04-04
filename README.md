@@ -139,11 +139,58 @@ See `config.example.yaml` for all options with comments. Key sections:
 | `dedup` | Hash size, similarity threshold, cooldowns |
 | `scene_memory` | Frame/subtitle/history buffer sizes |
 | `logging` | Log level, file logging |
-| `debug` | Print raw vision responses |
+| `session` | Active cluster: series, episode, session ID, path-parsing settings |
 
 ---
 
-## AnythingLLM Integration
+## Episode & Session Clustering
+
+Memory is isolated per **cluster** — a combination of `series_name`, `episode_label`, and `session_id`.  
+This prevents scenes from different episodes mixing together in the memory store.
+
+### How the active cluster is determined
+
+1. **Config** (`config.yaml → session`):
+   ```yaml
+   session:
+     series_name: "Blood-C"
+     episode_label: "S01E01"
+     session_id: ""                 # auto-generated if empty
+     auto_generate_session_id: true
+     parse_from_path: true
+   ```
+2. **Auto session ID** — if `session_id` is empty and `auto_generate_session_id: true`, a timestamp-based ID like `2026-04-04T04-30-00` is generated at startup.
+3. **Path parsing** — if `parse_from_path: true`, the system tries to infer `series_name` / `episode_label` from screenshot file paths (e.g. `Blood-C/S01E03/vlcsnap-001.png`). Falls back to config values if parsing fails.
+4. **CLI overrides** — `--series`, `--episode`, and `--session` flags on any command override the config.
+
+### Cluster-aware commands
+
+```bash
+# Use config.session defaults (with auto session ID)
+python main.py --query "что происходит?"
+
+# Override cluster at query time
+python main.py --series "Blood-C" --episode "S01E03" --query "что происходит?"
+
+# Override cluster in watcher mode
+python main.py --series "Blood-C" --episode "S01E03"
+
+# Override cluster in manual test mode
+python main.py --test screenshot.png --series "Blood-C" --episode "S01E03"
+```
+
+The active cluster is always printed at startup:
+```
+[Active cluster]: series=Blood-C episode=S01E03 session=2026-04-04T04-30-00
+```
+
+### Backward compatibility
+
+If no `session:` section is in your config, all values default to `"default"`, and the system behaves exactly as before (all data goes into the `default` cluster).
+
+---
+
+
 
 ### Current status
 
@@ -199,9 +246,10 @@ ai1/
 ├── vision/
 │   └── ollama_vision_client.py    Ollama vision API client with retry
 ├── memory/
-│   ├── context_store.py           SQLite-backed frame/subtitle/state storage
+│   ├── context_store.py           SQLite-backed frame/subtitle/state storage (cluster-aware)
 │   ├── scene_memory.py            Memory ingestion logic (silent layer)
-│   └── context_retriever.py       Context bundle assembly on user query
+│   ├── context_retriever.py       Context bundle assembly on user query
+│   └── cluster_resolver.py        Active cluster resolution + path-based episode parsing
 ├── assistant/
 │   ├── base_sink.py               Abstract AssistantSink interface
 │   ├── anythingllm_sink.py        AnythingLLM HTTP adapter (optional, preferred)
