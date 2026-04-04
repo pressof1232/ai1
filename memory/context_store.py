@@ -205,6 +205,7 @@ class ContextStore:
         return results
 
     def _prune_frames(self, cluster: ClusterContext) -> None:
+        ck = (cluster.series_name, cluster.episode_label, cluster.session_id)
         self._con.execute(
             "DELETE FROM frames "
             "WHERE series_name = ? AND episode_label = ? AND session_id = ? "
@@ -213,11 +214,7 @@ class ContextStore:
             "  WHERE series_name = ? AND episode_label = ? AND session_id = ? "
             "  ORDER BY id DESC LIMIT ?"
             ")",
-            (
-                cluster.series_name, cluster.episode_label, cluster.session_id,
-                cluster.series_name, cluster.episode_label, cluster.session_id,
-                self._max_frames,
-            ),
+            (*ck, *ck, self._max_frames),
         )
 
     # ------------------------------------------------------------------
@@ -257,6 +254,7 @@ class ContextStore:
         return [r[0] for r in reversed(rows)]
 
     def _prune_subtitles(self, cluster: ClusterContext) -> None:
+        ck = (cluster.series_name, cluster.episode_label, cluster.session_id)
         self._con.execute(
             "DELETE FROM subtitles "
             "WHERE series_name = ? AND episode_label = ? AND session_id = ? "
@@ -265,11 +263,7 @@ class ContextStore:
             "  WHERE series_name = ? AND episode_label = ? AND session_id = ? "
             "  ORDER BY id DESC LIMIT ?"
             ")",
-            (
-                cluster.series_name, cluster.episode_label, cluster.session_id,
-                cluster.series_name, cluster.episode_label, cluster.session_id,
-                self._max_subtitles,
-            ),
+            (*ck, *ck, self._max_subtitles),
         )
 
     # ------------------------------------------------------------------
@@ -348,6 +342,7 @@ class ContextStore:
         return [r[0] for r in reversed(rows)]
 
     def _prune_history(self, cluster: ClusterContext) -> None:
+        ck = (cluster.series_name, cluster.episode_label, cluster.session_id)
         self._con.execute(
             "DELETE FROM scene_history "
             "WHERE series_name = ? AND episode_label = ? AND session_id = ? "
@@ -356,11 +351,7 @@ class ContextStore:
             "  WHERE series_name = ? AND episode_label = ? AND session_id = ? "
             "  ORDER BY id DESC LIMIT ?"
             ")",
-            (
-                cluster.series_name, cluster.episode_label, cluster.session_id,
-                cluster.series_name, cluster.episode_label, cluster.session_id,
-                self._max_summaries,
-            ),
+            (*ck, *ck, self._max_summaries),
         )
 
     def close(self) -> None:
